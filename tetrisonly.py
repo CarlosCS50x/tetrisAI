@@ -50,6 +50,7 @@ class Tetris:
         self.next_piece = self.new_piece()
         self.score = 0
         self.drop_speed = 5  # Initial drop speed
+        self.dirty_rects = []
 
     def new_piece(self):
         shape = random.choice(SHAPES)
@@ -75,6 +76,10 @@ class Tetris:
                                      ((piece['x'] + x + offset[0]) * BLOCK_SIZE,
                                       (piece['y'] + y + offset[1]) * BLOCK_SIZE,
                                       BLOCK_SIZE, BLOCK_SIZE))
+                    rect = pygame.Rect((piece['x'] + x + offset[0]) * BLOCK_SIZE,
+                                       (piece['y'] + y + offset[1]) * BLOCK_SIZE,
+                                       BLOCK_SIZE, BLOCK_SIZE)
+                    self.dirty_rects.append(rect)
 
     def draw_next_piece(self):
         next_piece_offset = (GRID_WIDTH + 1, 1)
@@ -85,25 +90,41 @@ class Tetris:
                                      ((next_piece_offset[0] + x) * BLOCK_SIZE,
                                       (next_piece_offset[1] + y) * BLOCK_SIZE,
                                       BLOCK_SIZE, BLOCK_SIZE))
+                    rect = pygame.Rect((next_piece_offset[0] + x) * BLOCK_SIZE,
+                                       (next_piece_offset[1] + y) * BLOCK_SIZE,
+                                       BLOCK_SIZE, BLOCK_SIZE)
+                    self.dirty_rects.append(rect)
         next_text = self.font.render("Next:", True, WHITE)
         self.screen.blit(next_text, ((GRID_WIDTH + 1) * BLOCK_SIZE, BLOCK_SIZE))
+        rect = pygame.Rect(((GRID_WIDTH + 1) * BLOCK_SIZE, BLOCK_SIZE), next_text.get_size())
+        self.dirty_rects.append(rect)
 
     def draw(self):
-        self.screen.fill(BLACK)
+        self.screen.fill(BLACK)  # Clear the entire screen
+
         self.draw_grid()
         for y, row in enumerate(self.grid):
             for x, cell_color in enumerate(row):
                 if cell_color:
                     pygame.draw.rect(self.screen, cell_color,
-                                     (x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                             (x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+
         self.draw_piece(self.current_piece)
         self.draw_next_piece()
         self.draw_score()
-        pygame.display.flip()
+
+        # Add "Made By Zarcorp" text
+        made_by_text = self.font.render("Made By Zarcorp", True, WHITE)
+        made_by_rect = made_by_text.get_rect(bottomright=(SCREEN_WIDTH - 10, SCREEN_HEIGHT - 10))
+        self.screen.blit(made_by_text, made_by_rect)
+
+        pygame.display.flip()  #
 
     def draw_score(self):
         score_text = self.font.render(f"Score: {self.score}", True, WHITE)
         self.screen.blit(score_text, (10, 10))
+        rect = pygame.Rect((10, 10), score_text.get_size())
+        self.dirty_rects.append(rect)
 
     def check_collision(self, piece):
         for y, row in enumerate(piece['shape']):
@@ -145,6 +166,28 @@ class Tetris:
 
     def game_over(self):
         return any(self.grid[0])
+
+    def handle_game_over(self):
+        self.screen.fill(BLACK)
+        game_over_text = self.font.render("Game Over", True, WHITE)
+        self.screen.blit(game_over_text, (SCREEN_WIDTH // 2 - game_over_text.get_width() // 2,
+                                          SCREEN_HEIGHT // 2 - game_over_text.get_height() // 2))
+        restart_text = self.font.render("Press R to restart", True, WHITE)
+        self.screen.blit(restart_text, (SCREEN_WIDTH // 2 - restart_text.get_width() // 2,
+                                        SCREEN_HEIGHT // 2 + game_over_text.get_height()))
+        pygame.display.update()
+
+        waiting_for_restart = True
+        while waiting_for_restart:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    waiting_for_restart = False
+                    pygame.quit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_r:
+                        waiting_for_restart = False
+                        self.__init__()
+                        return
 
     def run(self):
         running = True
@@ -191,28 +234,11 @@ class Tetris:
             self.draw()
 
             if self.game_over():
-                self.screen.fill(BLACK)
-                game_over_text = self.font.render("Game Over", True, WHITE)
-                self.screen.blit(game_over_text, (SCREEN_WIDTH // 2 - game_over_text.get_width() // 2,
-                                                  SCREEN_HEIGHT // 2 - game_over_text.get_height() // 2))
-                restart_text = self.font.render("Press R to restart", True, WHITE)
-                self.screen.blit(restart_text, (SCREEN_WIDTH // 2 - restart_text.get_width() // 2,
-                                                SCREEN_HEIGHT // 2 + game_over_text.get_height()))
-                pygame.display.flip()
-
-                waiting_for_restart = True
-                while waiting_for_restart:
-                    for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            waiting_for_restart = False
-                            running = False
-                        if event.type == pygame.KEYDOWN:
-                            if event.key == pygame.K_r:
-                                waiting_for_restart = False
-                                self.__init__()
+                self.handle_game_over()
 
         pygame.quit()
 
 if __name__ == "__main__":
     game = Tetris()
     game.run()
+
